@@ -3,35 +3,43 @@ from math import sqrt as sqrt
 import numpy as np
 import matplotlib.pyplot as plt
 
-nop=1 #number of particles
-q=1     #particle charge
-m=1    #particle mass
-B=[0,0,1] #magnetic field
-E=[0,0,0] #electric field
-dt=0.01 #time step
-nt=1000 #number of time steps -> actual time = nt*dt=10
-x0=[0,0,0] #initial particle position
-v0=[1,0,0] #initial particle velocity
-c=299792458 #speed of light in a vacuum
+nop = 1                                 #number of particles
+q = 1.0                                 #particle charge
+m = 1.0                                 #particle mass
+c = 1.0                                 #speed of light in a vacuum for normalized
+E = np.array([0.0, 0.0, 0.0])
+B = np.array([0.0, 0.0, 1.0])
+dt = 0.01                               #time step
+nt = 1000                               #number of time steps -> actual time = nt*dt=10
+x = np.array([0.0, 0.0, 0.0])           #initial particle position
+v = np.array([1.0, 0.0, 0.0])           #initial particle velocity
 
-pos = [x0]
-vel = [v0]
-xhalf = x0 + (np.asanyarray(v0) * (dt / 2))
-pos.append(xhalf)
-for n in range(1000):
-    T = (dt/2)*(q/(m*c))*np.asanyarray(B)
-    S = T/(1 + (np.linalg.norm(T) ** 2))
-    vmin = vel[n] + ((dt/2) * q/m * np.asanyarray(E))
-    vprime = vmin + np.cross(vmin, T)
-    vplus = vmin + np.cross(vprime, S)
-    vnext = vplus + ((dt/2)*(q/m * np.asanyarray(E)))
-    vel.append(vnext)
-    xnext = pos[n] + (dt * vnext)
-    pos.append(xnext)
+
+pos = np.zeros((nt, 3))
+vel = np.zeros((nt, 3))
+
+for step in range(1000):
+    pos[step] = x
+    vel[step] = v
+
+    v_minus = v + (q / m) * E * (dt / 2)
+
+    T = (dt / 2) * (q * B / (m * c))
+    S = 2 * T / (1 + np.dot(T, T))
+    v_prime = v_minus + np.cross(v_minus, T)
+    v_plus = v_minus + np.cross(v_prime, S)
+
+    v = v_plus + (q * E / m) * (dt / 2)
+    x = x + v * dt
 
 xpos = [p[0] for p in pos]
 ypos = [p[1] for p in pos]
-plt.style.use('_mpl-gallery')
 
-plt.plot(xpos, ypos)
+fig = plt.figure()
+ax = fig.add_subplot()
+ax.plot(xpos, ypos)
+ax.set_xlabel('X')
+ax.set_ylabel('Y')
+ax.set_box_aspect(1)
+ax.set_title("Particle Trajectory")
 plt.show()
