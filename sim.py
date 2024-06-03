@@ -18,8 +18,8 @@ c = 1.0                                 # speed of light in a vacuum (1.0 for no
 dt = 0.01                               # time step
 nt = 1000                               # number of time steps
 
-E = np.array([0.0, 0.0, 0.0])           # electric field
-B = np.array([0.0, 0.0, 1.0])           # magnetic field
+E = np.array([1.0, 1.0, 0.0])           # electric field
+B = np.array([0.0, 1.0, 1.0])           # magnetic field
 x = np.array([0.0, 0.0, 0.0])           # initial particle position
 v = np.array([1.0, 0.0, 0.0])           # initial particle velocity
 
@@ -32,8 +32,7 @@ Methods:
 "boris" - boris leapfrog scheme
 "euler" - euler / first order scheme
 """
-method = "boris"                        # method of sim calculation
-
+method = "boris"                        
 
 for step in range(nt):
     # Store current position and velocity
@@ -56,8 +55,8 @@ for step in range(nt):
     
     if method == "euler":
         v += dt * (q / m) * (E + np.cross(v / c, B))
-        
-    # Full-step for position.
+
+    # Posiiton change
     x = x + v * dt
 
 # Calculating cyclotron frequency and gyroradius if magnetic field is static uniform.
