@@ -1,7 +1,7 @@
 """
 TO DO:
 - Simulate particles in cusp magnetic field situations (DONE)
-- Animate the particles over time (ehhhhh...)
+- Animate the particles over time (DONE)
 - Apply machine learning algorithms to segments of the timesteps and particles to group them
 """
 
@@ -116,6 +116,7 @@ ax4.set_box_aspect(1)
 plt.tight_layout()
 plt.show()
 
+# Energy and Axis plots
 fig2 = plt.figure(figsize=(10, 8))
 ax = fig2.add_subplot(121)
 ax.plot(np.arange(0, dt * nt, dt), en)
@@ -136,10 +137,14 @@ plt.legend()
 plt.tight_layout()
 plt.show()
 
+# Animation
 fig3 = plt.figure(figsize=(6, 6))
 ax = fig3.add_subplot(111)
 def update(it):
     ax.cla()
+    #fig.clf() #clear the figure
+    #ax = fig3.add_subplot(111)
+
     ax.plot(pos[0:it, 0], pos[0:it,1])
     ax.plot(pos[it,0],pos[it,1],'ro')
     n = 10
@@ -149,6 +154,7 @@ def update(it):
     ax.set_xlim(-n, n)
     ax.set_ylim(-n, n)
 
-plt.rcParams['animation.html'] = 'html5'
 ani = animation.FuncAnimation(fig3, update, interval=1, frames = nt)
+#plt.close()
+ani.save('sample.mp4', writer="Pillow") #save the animation as a gif file
 plt.close()
