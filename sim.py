@@ -1,27 +1,29 @@
 """
 TO DO:
-- Calculate and plot the gyrofrequency
-- Calculate and plot particle energy over time
-- Play with Euler scheme (1st order) to try it out
-- Reformat particles to be objects to prepare when particles are more than 1
+- Simulate particles in cusp magnetic field situations (DONE)
+- Animate the particles over time (ehhhhh...)
+- Apply machine learning algorithms to segments of the timesteps and particles to group them
 """
 
 import math
 from math import sqrt as sqrt
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+from IPython import display
+import matplotlib as mpl
 
 nop = 1                                 # number of particles
 q = 1.0                                 # particle charge
 m = 1.0                                 # particle mass
 c = 1.0                                 # speed of light in a vacuum (1.0 for normalized)
 dt = 0.01                               # time step
-nt = 1000                               # number of time steps
+nt = 10000                              # number of time steps
 
-E = np.array([1.0, 1.0, 0.0])           # electric field
-B = np.array([0.0, 1.0, 1.0])           # magnetic field
+E = np.array([0.0, 0.0, 0.0])           # electric field
+B = np.array([0.0, 0.0, 0.0])           # magnetic field
 x = np.array([0.0, 0.0, 0.0])           # initial particle position
-v = np.array([1.0, 0.0, 0.0])           # initial particle velocity
+v = np.array([1.0, 3.0, 0.0])           # initial particle velocity
 
 pos = np.zeros((nt, 3))                 # array of positions
 vel = np.zeros((nt, 3))                 # array of velocities
@@ -39,6 +41,7 @@ for step in range(nt):
     pos[step] = x
     vel[step] = v
     en[step] = 0.5 * m * np.dot(v, v)
+    B[0] = -x[1]     ;B[1] = -x[0] ;B[2] = 0.0
     
     if method == "boris":
         # Half-step for velocity.
@@ -61,7 +64,7 @@ for step in range(nt):
 
 # Calculating cyclotron frequency and gyroradius if magnetic field is static uniform.
 B_mag = np.linalg.norm(B)
-if B[0] == B_mag or B[1] == B_mag or B[2] == B_mag:
+if (B[0] == B_mag or B[1] == B_mag or B[2] == B_mag) and np.linalg.norm(E) == 0:
     cyc_f = q * B_mag / m
     v_perp = 0
     if(B[0] != 0): # gets the perpendicular values of v to B
@@ -122,10 +125,30 @@ ax.set_title('Particle Energy')
 ax.set_box_aspect(1)
 
 ax2 = fig2.add_subplot(122)
-ax2.plot(np.arange(0, dt * nt, dt), pos[:, 0])
+ax2.plot(np.arange(0, dt * nt, dt), pos[:, 0], label = 'x position')
+ax2.plot(np.arange(0, dt * nt, dt), pos[:, 1], label = 'y position', color = 'red')
+ax2.plot(np.arange(0, dt * nt, dt), pos[:, 2], label = 'z position', color = 'green')
 ax2.set_xlabel('Time')
-ax2.set_ylabel('X position')
+ax2.set_ylabel('Position')
 ax2.set_title('Position over Time')
 ax2.set_box_aspect(1)
+plt.legend()
 plt.tight_layout()
 plt.show()
+
+fig3 = plt.figure(figsize=(6, 6))
+ax = fig3.add_subplot(111)
+def update(it):
+    ax.cla()
+    ax.plot(pos[0:it, 0], pos[0:it,1])
+    ax.plot(pos[it,0],pos[it,1],'ro')
+    n = 10
+    x, y = np.mgrid[-n:n, -n:n]
+    u, v = -y, -x
+    ax.quiver(x, y, u, v, 1, alpha=1.)
+    ax.set_xlim(-n, n)
+    ax.set_ylim(-n, n)
+
+plt.rcParams['animation.html'] = 'html5'
+ani = animation.FuncAnimation(fig3, update, interval=1, frames = nt)
+plt.close()
