@@ -138,23 +138,39 @@ plt.tight_layout()
 plt.show()
 
 # Animation
-fig3 = plt.figure(figsize=(6, 6))
-ax = fig3.add_subplot(111)
-def update(it):
-    ax.cla()
-    #fig.clf() #clear the figure
-    #ax = fig3.add_subplot(111)
+anim_bool = False
+if anim_bool:
+    fig3 = plt.figure(figsize=(6, 6))
+    ax = fig3.add_subplot(111)
+    def update(it):
+        ax.cla()
+        #fig.clf() #clear the figure
+        #ax = fig3.add_subplot(111)
 
-    ax.plot(pos[0:it, 0], pos[0:it,1])
-    ax.plot(pos[it,0],pos[it,1],'ro')
-    n = 10
-    x, y = np.mgrid[-n:n, -n:n]
-    u, v = -y, -x
-    ax.quiver(x, y, u, v, 1, alpha=1.)
-    ax.set_xlim(-n, n)
-    ax.set_ylim(-n, n)
+        ax.plot(pos[0:it, 0], pos[0:it,1])
+        ax.plot(pos[it,0],pos[it,1],'ro')
+        n = 10
+        x, y = np.mgrid[-n:n, -n:n]
+        u, v = -y, -x
+        ax.quiver(x, y, u, v, 1, alpha=1.)
+        ax.set_xlim(-n, n)
+        ax.set_ylim(-n, n)
 
-ani = animation.FuncAnimation(fig3, update, interval=1, frames = nt)
-#plt.close()
-ani.save('sample.mp4', writer="Pillow") #save the animation as a gif file
-plt.close()
+    ani = animation.FuncAnimation(fig3, update, interval=1, frames = nt)
+    ani.save('sample.mp4', writer="Pillow") #save the animation as a gif file
+# Machine learning
+
+"""
+Apply machine learning algorithms to segments of the timesteps and particles to group them
+"""
+ml_bool = True
+if ml_bool:
+    #Segmenting the full algorithm to timestep chunks
+    segments = np.reshape(pos, (nt//100, 100, 3))
+    fig = plt.figure(figsize=(10, 8))
+    ax = fig.add_subplot(111)
+    for s in segments:
+        ax.plot(s[:, 0], s[:, 1])
+    ax.set_box_aspect(1)
+    plt.tight_layout()
+    plt.show()
