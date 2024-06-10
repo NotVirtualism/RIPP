@@ -166,7 +166,9 @@ Apply machine learning algorithms to segments of the timesteps and particles to 
 ml_bool = True
 if ml_bool:
     #Segmenting the full algorithm to timestep chunks
-    segments = np.reshape(pos, (nt//100, 100, 3))
+    tsc = 100 # Time Step Chunk: Segments will be grouped by x tsc (100 position points per segment by default).
+    # MAKE SURE NT % 100 = 0
+    segments = np.reshape(pos, (nt//tsc, tsc, 3))
     fig = plt.figure(figsize=(10, 8))
     ax = fig.add_subplot(111)
     for s in segments:
