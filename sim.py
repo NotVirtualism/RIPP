@@ -215,7 +215,7 @@ if ml_bool:
     """
 
     # Apply k-means clustering
-    kmeans = KMeans(n_clusters=9)  # Adjust the number of clusters as needed
+    kmeans = KMeans(n_clusters=2)  # Adjust the number of clusters as needed
     kmeans_result = kmeans.fit_predict(pca_result)
 
     # Plot the clustered segments
