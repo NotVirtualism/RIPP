@@ -54,14 +54,14 @@ pca_r = pca.fit_transform(ppx)
 print("Shape Post-PCA: {}".format(np.shape(pca_r)))
 
 # K-Means
-kmeans = KMeans(n_clusters=16, n_init=10)
+kmeans = KMeans(n_clusters=12, n_init=10)
 labels = kmeans.fit_predict(pca_r)
 
 # Silhouette Analysis
 silhouette_avg = silhouette_score(pca_r, labels)
 print("Silhouette Score: {}".format(silhouette_avg))
 silh_v = silhouette_samples(pca_r, labels)
-print(silh_v)
+
 
 # Grabs the best fit graphs per cluster
 best_samples = np.zeros((5, kmeans.n_clusters)) # 10 x cluster 2D matrix
@@ -73,14 +73,14 @@ for i in range(kmeans.n_clusters):
 
 ncols = 4
 nrows = (kmeans.n_clusters + ncols - 1) // ncols
-fig, axes = plt.subplots(nrows, ncols, figsize=(10, 8), sharex=True, sharey=False)
+fig, axes = plt.subplots(nrows, ncols, figsize=(12, 8), sharex=True, sharey=False)
 axes = axes.flatten()
 
 for cluster in range(kmeans.n_clusters):
     ax = axes[cluster]
     for s in best_samples[:, cluster]:
         ax.plot(all_b[int(s), :])
-    ax.set_title(f'Cluster {cluster + 1}')
+    ax.set_title('Cluster {:} - {:2.2%}'.format(cluster + 1, (labels == cluster).sum() / (nop*3)))
     #ax.set_box_aspect()
 
 for j in range(kmeans.n_clusters, len(axes)): fig.delaxes(axes[j])  # Removes empty subplots from the figure
