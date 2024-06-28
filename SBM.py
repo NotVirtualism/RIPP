@@ -49,11 +49,12 @@ ppx = np.array(fft_magnitude)
 
 # PCA
 pca = PCA(n_components=40)
-pca_r = pca.fit_transform(ppx)
+pca_r = pca.fit_transform(all_b)
+
 print("Shape Post-PCA: {}".format(np.shape(pca_r)))
 
 # K-Means
-kmeans = KMeans(n_clusters=6, n_init=10)
+kmeans = KMeans(n_clusters=8, n_init=10)
 labels = kmeans.fit_predict(pca_r)
 
 # Silhouette Analysis
@@ -63,12 +64,12 @@ silh_v = silhouette_samples(pca_r, labels)
 print(silh_v)
 
 # Grabs the best fit graphs per cluster
-best_samples = np.zeros((3, kmeans.n_clusters)) # 10 x cluster 2D matrix
+best_samples = np.zeros((5, kmeans.n_clusters)) # 10 x cluster 2D matrix
 for i in range(kmeans.n_clusters):
     clus_silh_val = silh_v[labels == i]  # Grabs all silhouette values for all graphs in cluster
     cluster_i = np.where(labels == i)[0]  # Grabs the index of the cluster
     sorted_i = cluster_i[np.argsort(-clus_silh_val)]  # Descending order
-    best_samples[:, i] = sorted_i[:3]  # Grabs the first 10 and throws it into the row
+    best_samples[:, i] = sorted_i[:5]  # Grabs the first 5 and throws it into the row
 
 ncols = 4
 nrows = (kmeans.n_clusters + ncols - 1) // ncols
@@ -87,6 +88,7 @@ for j in range(kmeans.n_clusters, len(axes)): fig.delaxes(axes[j])  # Removes em
 plt.tight_layout()
 plt.show()
 
+
 '''
 Visualizing Clusters
 # t-SNE for Visualization
@@ -100,5 +102,15 @@ plt.title('Cluster visualization using t-SNE')
 plt.xlabel('t-SNE Component 1')
 plt.ylabel('t-SNE Component 2')
 plt.colorbar(label='Cluster Label')
+plt.show()
+'''
+
+'''
+#Scree Plot
+PC_vals = np.arange(pca.n_components_) + 1
+plt.plot(PC_vals, pca.explained_variance_ratio_, 'o-', linewidth=2)
+plt.title('Scree Plot')
+plt.xlabel('Principal Component')
+plt.ylabel('Variance Explained')
 plt.show()
 '''
