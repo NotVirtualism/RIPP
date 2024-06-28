@@ -24,31 +24,27 @@ def SBM(nop, nt, a):
         xx[ip, :] = xx[ip, :]-xx[ip, 0]  # shift particle trajectory so initial position is at origin
     return xx
 
-def MSD(x):
-    msd = np.sum(x ** 2, axis=0) / len(x)
 
-    return msd
-
-
+# Creates particles for set
 nop = 1000
 nt = 4096 + 1
 nor = SBM(nop,nt,a=1.0)
 sub = SBM(nop,nt,a=0.5)
 sup = SBM(nop,nt,a=1.5)
-all_b = np.concatenate((nor,sub,sup))
+all_b = np.concatenate((nor,sub,sup))  # Combines into one set
 print("Shape Pre-PCA: {}".format(np.shape(all_b)))
 
 
 # FFT Preprocessing
 ppx = all_b / np.max(np.abs(all_b))  # Normalizes set
-ppx = fft(ppx, axis=1)
+ppx = fft(ppx, axis=1)  # Processes along Y axis
 fft_magnitude = np.abs(ppx)
-ppx = (fft_magnitude/np.max(fft_magnitude))
+ppx = (fft_magnitude/np.max(fft_magnitude))  # Normalizes magnitudes since FFT processes with complex numbers.
 ppx = np.array(ppx)
 
 
 # PCA
-pca = PCA(n_components=40)
+pca = PCA(n_components=40)  # 40 components keeps 98.5% of variance.
 pca_r = pca.fit_transform(ppx)
 
 print("Shape Post-PCA: {}".format(np.shape(pca_r)))
@@ -59,21 +55,22 @@ labels = kmeans.fit_predict(pca_r)
 
 # Silhouette Analysis
 silhouette_avg = silhouette_score(pca_r, labels)
-print("Silhouette Score: {}".format(silhouette_avg))
+print("Silhouette Score: {}".format(silhouette_avg))  # Average score for how closely a sample fits its cluster. It get's pretty low, but we look at the larger examples anyway.
 silh_v = silhouette_samples(pca_r, labels)
 
 
 # Grabs the best fit graphs per cluster
-best_samples = np.zeros((5, kmeans.n_clusters)) # 10 x cluster 2D matrix
+best_samples = np.zeros((5, kmeans.n_clusters))  # 5 x cluster 2D matrix
 for i in range(kmeans.n_clusters):
     clus_silh_val = silh_v[labels == i]  # Grabs all silhouette values for all graphs in cluster
     cluster_i = np.where(labels == i)[0]  # Grabs the index of the cluster
     sorted_i = cluster_i[np.argsort(-clus_silh_val)]  # Descending order
     best_samples[:, i] = sorted_i[:5]  # Grabs the first 5 and throws it into the row
 
+# Plotting clusters
 ncols = 4
 nrows = (kmeans.n_clusters + ncols - 1) // ncols
-fig, axes = plt.subplots(nrows, ncols, figsize=(12, 8), sharex=True, sharey=False)
+fig, axes = plt.subplots(nrows, ncols, figsize=(12, 8), sharex=True, sharey=False) # Creates a grid of subplots based on column and row
 axes = axes.flatten()
 
 for cluster in range(kmeans.n_clusters):
@@ -81,13 +78,11 @@ for cluster in range(kmeans.n_clusters):
     for s in best_samples[:, cluster]:
         ax.plot(all_b[int(s), :])
     ax.set_title('Cluster {:} - {:2.2%}'.format(cluster + 1, (labels == cluster).sum() / (nop*3)))
-    #ax.set_box_aspect()
 
 for j in range(kmeans.n_clusters, len(axes)): fig.delaxes(axes[j])  # Removes empty subplots from the figure
 
 plt.tight_layout()
 plt.show()
-
 
 '''
 Visualizing Clusters
