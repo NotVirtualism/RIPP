@@ -41,20 +41,20 @@ print("Shape Pre-PCA: {}".format(np.shape(all_b)))
 
 # FFT Preprocessing
 ppx = all_b / np.max(np.abs(all_b))  # Normalizes set
-ppx = fft(ppx, axis=0)
+ppx = fft(ppx, axis=1)
 fft_magnitude = np.abs(ppx)
-#ppx = (fft_magnitude/np.max(fft_magnitude))
-ppx = np.array(fft_magnitude)
+ppx = (fft_magnitude/np.max(fft_magnitude))
+ppx = np.array(ppx)
 
 
 # PCA
 pca = PCA(n_components=40)
-pca_r = pca.fit_transform(all_b)
+pca_r = pca.fit_transform(ppx)
 
 print("Shape Post-PCA: {}".format(np.shape(pca_r)))
 
 # K-Means
-kmeans = KMeans(n_clusters=8, n_init=10)
+kmeans = KMeans(n_clusters=16, n_init=10)
 labels = kmeans.fit_predict(pca_r)
 
 # Silhouette Analysis
@@ -81,7 +81,7 @@ for cluster in range(kmeans.n_clusters):
     for s in best_samples[:, cluster]:
         ax.plot(all_b[int(s), :])
     ax.set_title(f'Cluster {cluster + 1}')
-    ax.set_box_aspect(1)
+    #ax.set_box_aspect()
 
 for j in range(kmeans.n_clusters, len(axes)): fig.delaxes(axes[j])  # Removes empty subplots from the figure
 
