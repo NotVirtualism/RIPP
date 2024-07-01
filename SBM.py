@@ -25,18 +25,24 @@ def SBM(nop, nt, a):
     return xx
 
 
+def calc_Vel(trajectories):
+    return np.diff(trajectories, axis=1)
 # Creates particles for set
 nop = 1000
 nt = 4096 + 1
 nor = SBM(nop,nt,a=1.0)
 sub = SBM(nop,nt,a=0.5)
 sup = SBM(nop,nt,a=1.5)
-all_b = np.concatenate((nor,sub,sup))  # Combines into one set
+nor_vel = calc_Vel(nor)
+sub_vel = calc_Vel(sub)
+sup_vel = calc_Vel(sup)
+all_b = np.concatenate((nor, sub, sup))  # Combines into one set
+all_v = np.concatenate((nor_vel, sub_vel, sup_vel))
 print("Shape Pre-PCA: {}".format(np.shape(all_b)))
 
 
 # FFT Preprocessing
-ppx = all_b / np.max(np.abs(all_b))  # Normalizes set
+ppx = all_v / np.max(np.abs(all_v))  # Normalizes set
 ppx = fft(ppx, axis=1)  # Processes along Y axis
 fft_magnitude = np.abs(ppx)
 ppx = (fft_magnitude/np.max(fft_magnitude))  # Normalizes magnitudes since FFT processes with complex numbers.
@@ -50,7 +56,7 @@ pca_r = pca.fit_transform(ppx)
 print("Shape Post-PCA: {}".format(np.shape(pca_r)))
 
 # K-Means
-kmeans = KMeans(n_clusters=12, n_init=10)
+kmeans = KMeans(n_clusters=3, n_init=10)
 labels = kmeans.fit_predict(pca_r)
 
 # Silhouette Analysis
