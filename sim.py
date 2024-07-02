@@ -8,23 +8,25 @@ TODO:
 """
 
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
-import csv
+import time
+from numba import jit, njit, prange
 
-nop = 5    # number of particles
-q = 1.0    # particle charge
-m = 1.0    # particle mass
-c = 1.0    # speed of light in a vacuum (1.0 for normalized)
-dt = 0.01  # time step
-nt = 1000  # number of time steps
+nop = 10000 # number of particles
+q = 1.0     # particle charge
+m = 1.0     # particle mass
+c = 1.0     # speed of light in a vacuum (1.0 for normalized)
+dt = 0.01   # time step
+nt = 1000   # number of time steps
 
 E = np.array([0.0, 1.0, 0.0])  # electric field
 B = np.array([0.0, 1.0, 0.0])  # magnetic field
 
 # Particle attributes are stored as arrays of arrays
-pos_s = []
-vel_s = []
-en_s = []
+pos_s = np.zeros((nop, nt, 3))
+vel_s = np.zeros((nop, nt, 3))
+en_s = np.zeros((nop, nt))
 
 """
 Methods:
@@ -32,42 +34,39 @@ Methods:
 "euler" - euler / first order scheme
 """
 method = "boris"
-for p in range(nop):
-    # Initializes particle starting attributes
-    pos = np.zeros((nt, 3))  # array of positions
-    vel = np.zeros((nt, 3))  # array of velocities
-    en = np.zeros(nt)  # array of particle energies
-    x = np.array([0.0, 0.0, 0.0])  # initial particle position
-    v = np.random.randn(3)  # initial particle velocity
+start_time = time.time()
 
-    for step in range(nt):
-        # Store current position and velocity
-        pos[step] = x
-        vel[step] = v
-        en[step] = 0.5 * m * np.dot(v, v)
 
-        if method == "boris":
-            # Half-step for velocity.
-            v_minus = v + (q / m) * E * (dt / 2)
+@njit(parallel=True)
+def simulate_particles(pos_s, vel_s, en_s, nop, nt, m, q, dt, E, B, c, method):
+    for p in prange(nop):
+        x = np.array([0.0, 0.0, 0.0])  # initial particle position
+        v = np.random.randn(3)  # initial particle velocity
 
-            # Accounting for magnetic field.
-            T = (dt / 2) * (q * B / (m * c))
-            S = 2 * T / (1 + np.dot(T, T))
-            v_prime = v_minus + np.cross(v_minus, T)
-            v_plus = v_minus + np.cross(v_prime, S)
+        for step in range(nt):
+            # Store current position and velocity
+            pos_s[p, step] = x
+            vel_s[p, step] = v
+            en_s[p, step] = 0.5 * m * np.dot(v, v)
 
-            # Full-step for velocity.
-            v = v_plus + (q * E / m) * (dt / 2)
+            if method == "boris":
+                # Half-step for velocity.
+                v_minus = v + (q / m) * E * (dt / 2)
 
-        if method == "euler":
-            v += dt * (q / m) * (E + np.cross(v / c, B))
+                # Accounting for magnetic field.
+                T = (dt / 2) * (q * B / (m * c))
+                S = 2 * T / (1 + np.dot(T, T))
+                v_prime = v_minus + np.cross(v_minus, T)
+                v_plus = v_minus + np.cross(v_prime, S)
 
-        # Position change
-        x = x + v * dt
+                # Full-step for velocity.
+                v = v_plus + (q * E / m) * (dt / 2)
 
-    pos_s.append(pos)
-    vel_s.append(vel)
-    en_s.append(en)
+            if method == "euler":
+                v += dt * (q / m) * (E + np.cross(v / c, B))
+
+            # Position change
+            x = x + v * dt
 
 '''
 # Calculating cyclotron frequency and gyroradius if magnetic field is static uniform.
@@ -85,28 +84,28 @@ if (B[0] == B_mag or B[1] == B_mag or B[2] == B_mag) and np.linalg.norm(E) == 0:
     gyrofreq = cyc_f / (2 * np.pi)
     print("Cyclotron frequency: {}\nGyroradius: {}\nGyrofrequency: {}".format(cyc_f, gyroradius, gyrofreq))
 '''
+simulate_particles(pos_s, vel_s, en_s, nop, nt, m, q, dt, E, B, c, method)
+print("--- %s seconds ---" % (time.time() - start_time))
+
 
 # Writing to CSV
-fields = ['x0', 'y0', 'z0', 'v_x0', 'v_y0', 'v_z0', 'x1', 'y1', 'z1', 'v_x1', 'v_y1', 'v_z1', '...']
-rows = []
-for p in range(nop):
-    row = []
-    for i in range(nt):
-        # Positions
-        row.append(pos_s[p][i, 0])
-        row.append(pos_s[p][i, 1])
-        row.append(pos_s[p][i, 2])
+chunk_size = 1000
+num_files = nop // chunk_size
 
-        # Velocities
-        row.append(vel_s[p][i, 0])
-        row.append(vel_s[p][i, 1])
-        row.append(vel_s[p][i, 2])
-    rows.append(row)
+for i in range(num_files):
+    start_idx = i * chunk_size
+    end_idx = start_idx + chunk_size
 
-with open('particles.csv', 'w', newline='') as csvfile:
-    csvwriter = csv.writer(csvfile)
-    csvwriter.writerow(fields)
-    csvwriter.writerows(rows)
+    pos_chunk = pos_s[start_idx:end_idx]
+    vel_chunk = vel_s[start_idx:end_idx]
+    data = {
+        'pos': pos_chunk.reshape(-1, 3).tolist(),
+        'vel': vel_chunk.reshape(-1, 3).tolist()
+    }
+    df = pd.DataFrame(data)
+
+    fname = f'particle_chunk_{i+1}.csv'
+    df.to_csv(fname, index=False)
 
 # Plotting
 fig = plt.figure(figsize=(10, 8))
