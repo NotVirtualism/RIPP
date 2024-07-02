@@ -1,9 +1,10 @@
 """
 TODO:
-- Split features among various .py files for sake of avoiding bloat.
+- Split features among various .py files for sake of avoiding bloat. (DONE)
 - Export and import data as .cvs tables or .txt files.
 - Further research and implement functionality with plasmapy and astropy, which may require rethinking and rewriting a
   lot of base code.
+- - - It may be easier to just not use astropy and plasmapy.
 """
 from math import sqrt as sqrt
 import numpy as np
@@ -47,28 +48,28 @@ def track_particle_boris(E0, B0, x0, v0, particle, dt, nt):
     return x,v
 
 
-nop = 2  # number of particles
-particles = [] # particle array
-x_s = []       # inital positions
-v_s = []       # initial velocities
-pos_s = []     # particle positions
-vel_s = []     # particle velocities
-c = 1.0  # speed of light in a vacuum (1.0 for normalized)
-dt = 0.01  # time step
-nt = 1000  # number of time steps
+nop = 2         # number of particles
+particles = []  # particle array
+x_s = []        # initial positions
+v_s = []        # initial velocities
+pos_s = []      # particle positions
+vel_s = []      # particle velocities
+c = 1.0         # speed of light in a vacuum (1.0 for normalized)
+dt = 0.01       # time step
+nt = 1000       # number of time steps
 
-E = np.array([0.0, 0.0, 0.0]) * u.V / u.m  # electric field
-B = np.array([0.0, 0.0, 5.0]) * u.T  # magnetic field
+E = np.array([0.0, 0.0, 0.0])  # electric field
+B = np.array([0.0, 0.0, 5.0])  # magnetic field
 for p in range(nop):
     particles.append(DimensionlessParticle(mass=1.0, charge=1.0))
 
 # Particle 1
-x_s.append(np.array([0.0, 0.0, 0.0]) * u.m)  # initial particle position
-v_s.append(np.array([1.0, 0.0, 1.0]) * u.m / u.s) # initial particle velocity
+x_s.append(np.array([0.0, 0.0, 0.0]))  # initial particle position
+v_s.append(np.array([1.0, 0.0, 1.0]))  # initial particle velocity
 
 # Particle 2
-x_s.append(np.array([0.0, 0.0, 0.0]) * u.m)  # initial particle position
-v_s.append(np.array([1.0, 0.0, -1.0]) * u.m / u.s) # initial particle velocity
+x_s.append(np.array([0.0, 0.0, 0.0]))   # initial particle position
+v_s.append(np.array([1.0, 0.0, -1.0]))  # initial particle velocity
 
 # Various booleans for turning on and off features of the simulation for different tests.
 # plot_bool -- Plots various aspects of the simulations results. these being:
@@ -127,7 +128,7 @@ for step in range(nt):
     if method == "euler":
         v += dt * (particle.charge / particle.mass) * (E + np.cross(v / c, B))
 
-    # Posiiton change
+    # Position change
     x = x + v * dt
 '''
 
@@ -209,93 +210,4 @@ if plot_bool:
     plt.tight_layout()
     plt.show()
 '''
-# Animation
-if anim_bool:
-    fig3 = plt.figure(figsize=(6, 6))
-    ax = fig3.add_subplot(111)
 
-
-    def update(it):
-        ax.cla()
-        # fig.clf() #clear the figure
-        # ax = fig3.add_subplot(111)
-
-        ax.plot(pos[0:it, 0], pos[0:it, 1])
-        ax.plot(pos[it, 0], pos[it, 1], 'ro')
-        n = 10
-        x, y = np.mgrid[-n:n, -n:n]
-        u, v = -y, -x
-        ax.quiver(x, y, u, v, 1, alpha=1.)
-        ax.set_xlim(-n, n)
-        ax.set_ylim(-n, n)
-
-
-    ani = animation.FuncAnimation(fig3, update, interval=1, frames=nt)
-    ani.save('sample.mp4', writer="Pillow")  # save the animation as a gif file
-
-# Machine learning
-"""
-Apply machine learning algorithms to segments of the timesteps and particles to group them
-"""
-if ml_bool:
-    # Segmenting the full algorithm to timestep chunks
-    tsc = 100  # Time Step Chunk: Segments will be grouped by x tsc (100 position points per segment by default).
-    # MAKE SURE NT % tsc = 0
-    segments = np.reshape(pos, (nt // tsc, tsc, 3))
-    fig = plt.figure(figsize=(10, 8))
-    ax = fig.add_subplot(111)
-    for s in segments:
-        ax.plot(s[:, 0], s[:, 1])
-    ax.set_box_aspect(1)
-    plt.tight_layout()
-    plt.show()
-
-    # Apply FFT to each segment and extract features
-    fft_segments = []
-    for segment in segments:
-        fft_result = fft(segment, axis=0)
-        fft_magnitude = np.abs(fft_result)
-        fft_segments.append(fft_magnitude.flatten())
-
-    fft_segments = np.array(fft_segments)
-
-    # Apply PCA to reduce dimensionality
-    pca = PCA(n_components=2)  # Adjust the number of components as needed
-    pca_result = pca.fit_transform(fft_segments)
-
-    """
-    To help find the best number of components, use:
-    pca = PCA()
-    pca.fit(x_train)
-    cumsum = np.cumsum(pca.explained_variance_ratio_) - It is also a good idea to plot the results of this.
-    d = np.argmax(cumsum >= 0.95) + 1
-
-    The optimal number of components is reaches when the cumulative variance stops growing fast.
-    Change the 0.95 to whatever percentage of variance you want (99% - 0.99, 98% - 0.98, etc.)
-    """
-
-    # Apply k-means clustering
-    kmeans = KMeans(n_clusters=2)  # Adjust the number of clusters as needed
-    kmeans_result = kmeans.fit_predict(pca_result)
-
-    # Plot the clustered segments
-    num_clusters = len(np.unique(kmeans_result))
-    ncols = 3
-    nrows = (num_clusters + ncols - 1) // ncols
-    fig, axes = plt.subplots(nrows, ncols, figsize=(15, 5 * nrows), sharex=True, sharey=True)
-    axes = axes.flatten()
-
-    colors = ['r', 'g', 'b', 'y', 'c', 'm', 'orange', 'purple', 'pink']
-    for cluster in range(num_clusters):
-        ax = axes[cluster]
-        for i, segment in enumerate(segments):
-            if kmeans_result[i] == cluster:
-                ax.plot(segment[:, 0], segment[:, 1], color=colors[cluster])
-        ax.set_title(f'Cluster {cluster + 1}')
-        ax.set_box_aspect(1)
-
-    for j in range(num_clusters, len(axes)): fig.delaxes(axes[j])  # Removes empty subplots from the figure
-
-    plt.tight_layout()
-    plt.show()
-    
