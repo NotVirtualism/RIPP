@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import time
 from numba import jit, njit, prange
-from scipy.interpolate import RegularGridInterpolator
+from scipy.interpolate import RectBivariateSpline
 
 
 nproc = 8
@@ -53,13 +53,14 @@ y = np.arange(0, ly * nproc, dy)
 print(bx.shape)
 print(x.shape)
 print(y.shape)
+
 # Interpolations
-bx_interp = RegularGridInterpolator((y, x), bx)
-by_interp = RegularGridInterpolator((y, x), by)
-bz_interp = RegularGridInterpolator((y, x), bz)
-ex_interp = RegularGridInterpolator((y, x), ex)
-ey_interp = RegularGridInterpolator((y, x), ey)
-ez_interp = RegularGridInterpolator((y, x), ez)
+bx_interp = RectBivariateSpline(y, x, bx)
+by_interp = RectBivariateSpline(y, x, by)
+bz_interp = RectBivariateSpline(y, x, bz)
+ex_interp = RectBivariateSpline(y, x, ex)
+ey_interp = RectBivariateSpline(y, x, ey)
+ez_interp = RectBivariateSpline(y, x, ez)
 
 plot_bool = False
 if plot_bool:
@@ -103,7 +104,7 @@ qe = -1.0   # electron charge
 me = 0.01   # electron mass
 c = 1.0     # speed of light in a vacuum (1.0 for normalized)
 dt = 0.01   # time step
-nt = 1000   # number of time steps
+nt = 10000  # number of time steps
 
 # Particle attributes are stored as arrays of arrays
 e_pos = np.zeros((nop, nt, 3))
@@ -124,8 +125,8 @@ def simulate_particles(pos_s, vel_s, nop, nt, m, q, dt, ex_interp, ey_interp, ez
             vel_s[p, step] = v
 
             # Interpolate fields at particle position
-            E = np.array([ex_interp((x[1], x[0])), ey_interp((x[1], x[0])), ez_interp((x[1], x[0]))])
-            B = np.array([bx_interp((x[1], x[0])), by_interp((x[1], x[0])), bz_interp((x[1], x[0]))])
+            E = np.array([ex_interp(x[1], x[0])[0, 0], ey_interp(x[1], x[0])[0, 0], ez_interp(x[1], x[0])[0, 0]])
+            B = np.array([bx_interp(x[1], x[0])[0, 0], by_interp(x[1], x[0])[0, 0], bz_interp(x[1], x[0])[0, 0]])
             print("E: {}".format(E))
             print("B: {}".format(B))
 
