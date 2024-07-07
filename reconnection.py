@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import time
 from numba import jit, njit, prange
+from scipy.interpolate import RegularGridInterpolator
+
 
 nproc = 8
 nx = 200
@@ -44,6 +46,20 @@ for irank in range(nproc):
         ex = np.concatenate((ex, dat4), axis=0)
         ey = np.concatenate((ey, dat5), axis=0)
         ez = np.concatenate((ez, dat6), axis=0)
+
+# Define the grid points
+x = np.arange(0, lx, dx)
+y = np.arange(0, ly * nproc, dy)
+print(bx.shape)
+print(x.shape)
+print(y.shape)
+# Interpolations
+bx_interp = RegularGridInterpolator((y, x), bx)
+by_interp = RegularGridInterpolator((y, x), by)
+bz_interp = RegularGridInterpolator((y, x), bz)
+ex_interp = RegularGridInterpolator((y, x), ex)
+ey_interp = RegularGridInterpolator((y, x), ey)
+ez_interp = RegularGridInterpolator((y, x), ez)
 
 plot_bool = False
 if plot_bool:
@@ -96,8 +112,8 @@ i_pos = np.zeros((nop, nt, 3))
 i_vel = np.zeros((nop, nt, 3))
 
 
-@njit(parallel=True)
-def simulate_particles(pos_s, vel_s, en_s, nop, nt, m, q, dt, ex, ey, ez, bx, by, bz, c, method):
+#@jit(parallel=True)
+def simulate_particles(pos_s, vel_s, nop, nt, m, q, dt, ex_interp, ey_interp, ez_interp, bx_interp, by_interp, bz_interp, c):
     for p in prange(nop):
         x = np.array([0.0, 0.0, 0.0])  # initial particle position
         v = np.random.randn(3)  # initial particle velocity
@@ -106,10 +122,16 @@ def simulate_particles(pos_s, vel_s, en_s, nop, nt, m, q, dt, ex, ey, ez, bx, by
             # Store current position and velocity
             pos_s[p, step] = x
             vel_s[p, step] = v
-            en_s[p, step] = 0.5 * m * np.dot(v, v)
+
+            # Interpolate fields at particle position
+            E = np.array([ex_interp((x[1], x[0])), ey_interp((x[1], x[0])), ez_interp((x[1], x[0]))])
+            B = np.array([bx_interp((x[1], x[0])), by_interp((x[1], x[0])), bz_interp((x[1], x[0]))])
+            print("E: {}".format(E))
+            print("B: {}".format(B))
 
             # Half-step for velocity.
             v_minus = v + (q / m) * E * (dt / 2)
+            print(v_minus)
 
             # Accounting for magnetic field.
             T = (dt / 2) * (q * B / (m * c))
@@ -122,3 +144,16 @@ def simulate_particles(pos_s, vel_s, en_s, nop, nt, m, q, dt, ex, ey, ez, bx, by
 
             # Position change
             x = x + v * dt
+
+
+simulate_particles(i_pos, i_vel, nop, nt, mi, qi, dt, ex_interp, ey_interp, ez_interp, bx_interp, by_interp, bz_interp, c)
+# Plotting
+fig = plt.figure(figsize=(10, 8))
+ax = fig.add_subplot(111)
+ax.set_xlabel("X")
+ax.set_ylabel("Y")
+for pos in i_pos:
+    ax.plot(pos[:, 0], pos[:, 1])
+
+plt.tight_layout()
+plt.show()
