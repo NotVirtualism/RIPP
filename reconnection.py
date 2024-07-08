@@ -47,21 +47,6 @@ for irank in range(nproc):
         ey = np.concatenate((ey, dat5), axis=0)
         ez = np.concatenate((ez, dat6), axis=0)
 
-# Define the grid points
-x = np.arange(0, lx, dx)
-y = np.arange(0, ly * nproc, dy)
-print(bx.shape)
-print(x.shape)
-print(y.shape)
-
-# Interpolations
-bx_interp = RectBivariateSpline(y, x, bx)
-by_interp = RectBivariateSpline(y, x, by)
-bz_interp = RectBivariateSpline(y, x, bz)
-ex_interp = RectBivariateSpline(y, x, ex)
-ey_interp = RectBivariateSpline(y, x, ey)
-ez_interp = RectBivariateSpline(y, x, ez)
-
 plot_bool = False
 if plot_bool:
     # Plotting Magnetic Fields
@@ -97,7 +82,7 @@ if plot_bool:
     fig.suptitle('Electric Fields')
     plt.show()
 
-nop = 1     # number of particles
+nop = 100   # number of particles
 qi = 1.0    # ion charge
 mi = 1.0    # ion mass
 qe = -1.0   # electron charge
@@ -113,10 +98,10 @@ i_pos = np.zeros((nop, nt, 3))
 i_vel = np.zeros((nop, nt, 3))
 
 
-#@jit(parallel=True)
-def simulate_particles(pos_s, vel_s, nop, nt, m, q, dt, ex_interp, ey_interp, ez_interp, bx_interp, by_interp, bz_interp, c):
+@njit(parallel=True)
+def simulate_particles(pos_s, vel_s, nop, nt, m, q, dt, c):
     for p in prange(nop):
-        x = np.array([0.0, 0.0, 0.0])  # initial particle position
+        x = np.array([100.0, 256.0, 256.0])  # initial particle position
         v = np.random.randn(3)  # initial particle velocity
 
         for step in range(nt):
@@ -124,15 +109,16 @@ def simulate_particles(pos_s, vel_s, nop, nt, m, q, dt, ex_interp, ey_interp, ez
             pos_s[p, step] = x
             vel_s[p, step] = v
 
-            # Interpolate fields at particle position
-            E = np.array([ex_interp(x[1], x[0])[0, 0], ey_interp(x[1], x[0])[0, 0], ez_interp(x[1], x[0])[0, 0]])
-            B = np.array([bx_interp(x[1], x[0])[0, 0], by_interp(x[1], x[0])[0, 0], bz_interp(x[1], x[0])[0, 0]])
-            print("E: {}".format(E))
-            print("B: {}".format(B))
+            # Interpolate fields at particle position using nearest neighbor
+            check = np.array([round(i) for i in x])
+
+            if(check[0] > 200 or check[0] < 0 or check[1] > 512 or check[1] < 0): # Break if outside bounds
+                break
+            E = np.array([ex[check[1], check[0]], ey[check[1], check[0]], ez[check[1], check[0]]])
+            B = np.array([bx[check[1], check[0]], by[check[1], check[0]], bz[check[1], check[0]]])
 
             # Half-step for velocity.
             v_minus = v + (q / m) * E * (dt / 2)
-            print(v_minus)
 
             # Accounting for magnetic field.
             T = (dt / 2) * (q * B / (m * c))
@@ -147,14 +133,14 @@ def simulate_particles(pos_s, vel_s, nop, nt, m, q, dt, ex_interp, ey_interp, ez
             x = x + v * dt
 
 
-simulate_particles(i_pos, i_vel, nop, nt, mi, qi, dt, ex_interp, ey_interp, ez_interp, bx_interp, by_interp, bz_interp, c)
+simulate_particles(i_pos, i_vel, nop, nt, mi, qi, dt, c)
 # Plotting
 fig = plt.figure(figsize=(10, 8))
 ax = fig.add_subplot(111)
-ax.set_xlabel("X")
-ax.set_ylabel("Y")
+ax.set_xlim(0, 512)
+ax.set_ylim(0, 200)
 for pos in i_pos:
-    ax.plot(pos[:, 0], pos[:, 1])
+    ax.plot(pos[:, 1], pos[:, 0])
 
 plt.tight_layout()
 plt.show()
