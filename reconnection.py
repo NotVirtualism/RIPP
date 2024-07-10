@@ -82,7 +82,7 @@ if plot_bool:
     fig.suptitle('Electric Fields')
     plt.show()
 
-nop = 100   # number of particles
+nop = 10000 # number of particles
 qi = 1.0    # ion charge
 mi = 1.0    # ion mass
 qe = -1.0   # electron charge
@@ -101,8 +101,9 @@ i_vel = np.zeros((nop, nt, 3))
 @njit(parallel=True)
 def simulate_particles(pos_s, vel_s, nop, nt, m, q, dt, c):
     for p in prange(nop):
-        x = np.array([100.0, 256.0, 256.0])  # initial particle position
+        x = np.array([100.0 + np.random.randint(-10, 11), 256.0 + np.random.randint(-10, 11), 256.0])  # initial particle position (given a 10 unit random variance)
         v = np.random.randn(3)  # initial particle velocity
+        run = True
 
         for step in range(nt):
             # Store current position and velocity
@@ -112,35 +113,75 @@ def simulate_particles(pos_s, vel_s, nop, nt, m, q, dt, c):
             # Interpolate fields at particle position using nearest neighbor
             check = np.array([round(i) for i in x])
 
-            if(check[0] > 200 or check[0] < 0 or check[1] > 512 or check[1] < 0): # Break if outside bounds
-                break
-            E = np.array([ex[check[1], check[0]], ey[check[1], check[0]], ez[check[1], check[0]]])
-            B = np.array([bx[check[1], check[0]], by[check[1], check[0]], bz[check[1], check[0]]])
+            if(check[0] >= nx or check[0] < 0 or check[1] >= ny*nproc or check[1] < 0): # Break if outside bounds
+                run = False
+            if run:
+                E = np.array([ex[check[1], check[0]], ey[check[1], check[0]], ez[check[1], check[0]]])
+                B = np.array([bx[check[1], check[0]], by[check[1], check[0]], bz[check[1], check[0]]])
 
-            # Half-step for velocity.
-            v_minus = v + (q / m) * E * (dt / 2)
+                # Half-step for velocity.
+                v_minus = v + (q / m) * E * (dt / 2)
 
-            # Accounting for magnetic field.
-            T = (dt / 2) * (q * B / (m * c))
-            S = 2 * T / (1 + np.dot(T, T))
-            v_prime = v_minus + np.cross(v_minus, T)
-            v_plus = v_minus + np.cross(v_prime, S)
+                # Accounting for magnetic field.
+                T = (dt / 2) * (q * B / (m * c))
+                S = 2 * T / (1 + np.dot(T, T))
+                v_prime = v_minus + np.cross(v_minus, T)
+                v_plus = v_minus + np.cross(v_prime, S)
 
-            # Full-step for velocity.
-            v = v_plus + (q * E / m) * (dt / 2)
+                # Full-step for velocity.
+                v = v_plus + (q * E / m) * (dt / 2)
 
-            # Position change
-            x = x + v * dt
+                # Position change
+                x = x + v * dt
 
 
+start_time = time.time()
 simulate_particles(i_pos, i_vel, nop, nt, mi, qi, dt, c)
-# Plotting
-fig = plt.figure(figsize=(10, 8))
-ax = fig.add_subplot(111)
-ax.set_xlim(0, 512)
-ax.set_ylim(0, 200)
-for pos in i_pos:
-    ax.plot(pos[:, 1], pos[:, 0])
+print("--- Ions simulated in %s seconds ---" % (time.time() - start_time))
+start_time = time.time()
+simulate_particles(e_pos, e_vel, nop, nt, me, qe, dt, c)
+print("--- Electrons simulated in %s seconds ---" % (time.time() - start_time))
+plot2_bool = False
+if plot2_bool:
+    # Plotting
+    fig = plt.figure(figsize=(10, 8))
+    ax = fig.add_subplot(111)
+    ax.set_xlim(0, 512)
+    ax.set_ylim(0, 200)
+    for pos in e_pos:
+        ax.plot(pos[:, 1], pos[:, 0])
 
-plt.tight_layout()
-plt.show()
+    plt.tight_layout()
+    plt.show()
+
+csv_bool = True
+if csv_bool:
+    # Writing to CSV
+    chunk_size = 1000
+    num_files = nop // chunk_size
+
+    for i in range(num_files):
+        start_idx = i * chunk_size
+        end_idx = start_idx + chunk_size
+
+        pos_chunk = i_pos[start_idx:end_idx]
+        vel_chunk = i_vel[start_idx:end_idx]
+        data = {
+            'pos': pos_chunk.reshape(-1, 3).tolist(),
+            'vel': vel_chunk.reshape(-1, 3).tolist()
+        }
+        df = pd.DataFrame(data)
+
+        fname = f'ion_chunk_{i+1}.csv'
+        df.to_csv(fname, index=False)
+
+        pos_chunk = e_pos[start_idx:end_idx]
+        vel_chunk = e_vel[start_idx:end_idx]
+        data = {
+            'pos': pos_chunk.reshape(-1, 3).tolist(),
+            'vel': vel_chunk.reshape(-1, 3).tolist()
+        }
+        df = pd.DataFrame(data)
+
+        fname = f'electron_chunk_{i + 1}.csv'
+        df.to_csv(fname, index=False)
