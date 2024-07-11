@@ -82,7 +82,7 @@ if plot_bool:
     fig.suptitle('Electric Fields')
     plt.show()
 
-nop = 10000 # number of particles
+nop = 1000  # number of particles
 qi = 1.0    # ion charge
 mi = 1.0    # ion mass
 qe = -1.0   # electron charge
@@ -92,8 +92,8 @@ dt = 0.01   # time step
 nt = 10000  # number of time steps
 
 # Particle attributes are stored as arrays of arrays
-e_pos = np.zeros((nop, nt, 3))
-e_vel = np.zeros((nop, nt, 3))
+e_pos = np.zeros((nop, nt*10, 3))
+e_vel = np.zeros((nop, nt*10, 3))
 i_pos = np.zeros((nop, nt, 3))
 i_vel = np.zeros((nop, nt, 3))
 
@@ -139,11 +139,21 @@ start_time = time.time()
 simulate_particles(i_pos, i_vel, nop, nt, mi, qi, dt, c)
 print("--- Ions simulated in %s seconds ---" % (time.time() - start_time))
 start_time = time.time()
-simulate_particles(e_pos, e_vel, nop, nt, me, qe, dt, c)
+simulate_particles(e_pos, e_vel, nop, nt*10, me, qe, dt/100, c)
 print("--- Electrons simulated in %s seconds ---" % (time.time() - start_time))
-plot2_bool = False
+plot2_bool = True
 if plot2_bool:
     # Plotting
+    fig = plt.figure(figsize=(10, 8))
+    ax = fig.add_subplot(111)
+    ax.set_xlim(0, 512)
+    ax.set_ylim(0, 200)
+    for pos in i_pos:
+        ax.plot(pos[:, 1], pos[:, 0])
+
+    plt.tight_layout()
+    plt.show()
+
     fig = plt.figure(figsize=(10, 8))
     ax = fig.add_subplot(111)
     ax.set_xlim(0, 512)
@@ -154,7 +164,7 @@ if plot2_bool:
     plt.tight_layout()
     plt.show()
 
-csv_bool = True
+csv_bool = False
 if csv_bool:
     # Writing to CSV
     chunk_size = 1000
