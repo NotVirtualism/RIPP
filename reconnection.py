@@ -4,9 +4,15 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import time
 from numba import jit, njit, prange
-from scipy.interpolate import RectBivariateSpline
 
+# ML
+from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
+from scipy.fft import fft
+from sklearn.metrics import silhouette_score, silhouette_samples
+from sklearn.manifold import TSNE
 
+# Variables for EM fields
 nproc = 8
 nx = 200
 ny = 64
@@ -16,7 +22,7 @@ lx = dx * nx
 ly = dy * ny
 it = 4
 
-### EM fields and density ###
+# Importing EM Fields
 for irank in range(nproc):
     f1 = open('data/bx%05drank=%04d.d' % (it, irank), 'rb')
     f2 = open('data/by%05drank=%04d.d' % (it, irank), 'rb')
@@ -82,18 +88,18 @@ if plot_bool:
     fig.suptitle('Electric Fields')
     plt.show()
 
-nop = 1000  # number of particles
-qi = 1.0    # ion charge
-mi = 1.0    # ion mass
-qe = -1.0   # electron charge
-me = 0.01   # electron mass
-c = 1.0     # speed of light in a vacuum (1.0 for normalized)
-dt = 0.01   # time step
-nt = 10000  # number of time steps
+nop = 10000  # number of particles
+qi = 1.0     # ion charge
+mi = 1.0     # ion mass
+qe = -1.0    # electron charge
+me = 0.01    # electron mass
+c = 1.0      # speed of light in a vacuum (1.0 for normalized)
+dt = 0.01    # time step
+nt = 10000   # number of time steps
 
 # Particle attributes are stored as arrays of arrays
-e_pos = np.zeros((nop, nt*10, 3))
-e_vel = np.zeros((nop, nt*10, 3))
+e_pos = np.zeros((nop//100, nt*100, 3))
+e_vel = np.zeros((nop//100, nt*100, 3))
 i_pos = np.zeros((nop, nt, 3))
 i_vel = np.zeros((nop, nt, 3))
 
@@ -139,17 +145,20 @@ start_time = time.time()
 simulate_particles(i_pos, i_vel, nop, nt, mi, qi, dt, c)
 print("--- Ions simulated in %s seconds ---" % (time.time() - start_time))
 start_time = time.time()
-simulate_particles(e_pos, e_vel, nop, nt*10, me, qe, dt/100, c)
+simulate_particles(e_pos, e_vel, nop//100, nt*100, me, qe, dt/100, c)
 print("--- Electrons simulated in %s seconds ---" % (time.time() - start_time))
-plot2_bool = True
+
+# Plotting ion and electron paths on XY axis slice.
+plot2_bool = False
 if plot2_bool:
     # Plotting
     fig = plt.figure(figsize=(10, 8))
     ax = fig.add_subplot(111)
     ax.set_xlim(0, 512)
     ax.set_ylim(0, 200)
+    ax.set_aspect(1)
     for pos in i_pos:
-        ax.plot(pos[:, 1], pos[:, 0])
+        ax.plot(pos[2000:5001:10, 1], pos[2000:5001:10, 0]) # 300 timesteps
 
     plt.tight_layout()
     plt.show()
@@ -159,39 +168,60 @@ if plot2_bool:
     ax.set_xlim(0, 512)
     ax.set_ylim(0, 200)
     for pos in e_pos:
-        ax.plot(pos[:, 1], pos[:, 0])
+        ax.plot(pos[200000:500001:100, 1], pos[200000:500001:100, 0]) # 3000 timesteps
 
     plt.tight_layout()
     plt.show()
 
-csv_bool = False
-if csv_bool:
-    # Writing to CSV
-    chunk_size = 1000
-    num_files = nop // chunk_size
-
-    for i in range(num_files):
-        start_idx = i * chunk_size
-        end_idx = start_idx + chunk_size
-
-        pos_chunk = i_pos[start_idx:end_idx]
-        vel_chunk = i_vel[start_idx:end_idx]
-        data = {
-            'pos': pos_chunk.reshape(-1, 3).tolist(),
-            'vel': vel_chunk.reshape(-1, 3).tolist()
-        }
-        df = pd.DataFrame(data)
-
-        fname = f'ion_chunk_{i+1}.csv'
-        df.to_csv(fname, index=False)
-
-        pos_chunk = e_pos[start_idx:end_idx]
-        vel_chunk = e_vel[start_idx:end_idx]
-        data = {
-            'pos': pos_chunk.reshape(-1, 3).tolist(),
-            'vel': vel_chunk.reshape(-1, 3).tolist()
-        }
-        df = pd.DataFrame(data)
-
-        fname = f'electron_chunk_{i + 1}.csv'
-        df.to_csv(fname, index=False)
+# ML Algorithms (for implementation later)
+'''
+def ml(pos, vel):
+    # FFT Preprocessing
+    ppx = vel / np.max(np.abs(vel))  # Normalizes set
+    ppx = fft(ppx, axis=1)  # Processes along Y axis
+    fft_magnitude = np.abs(ppx)
+    ppx = (fft_magnitude/np.max(fft_magnitude))  # Normalizes magnitudes since FFT processes with complex numbers.
+    ppx = np.array(ppx)
+    
+    
+    # PCA
+    pca = PCA(n_components=40)  # 40 components keeps 98.5% of variance.
+    pca_r = pca.fit_transform(ppx)
+    
+    print("Shape Post-PCA: {}".format(np.shape(pca_r)))
+    
+    # K-Means
+    kmeans = KMeans(n_clusters=3, n_init=10)
+    labels = kmeans.fit_predict(pca_r)
+    
+    # Silhouette Analysis
+    silhouette_avg = silhouette_score(pca_r, labels)
+    print("Silhouette Score: {}".format(silhouette_avg))  # Average score for how closely a sample fits its cluster. It get's pretty low, but we look at the larger examples anyway.
+    silh_v = silhouette_samples(pca_r, labels)
+    
+    
+    # Grabs the best fit graphs per cluster
+    best_samples = np.zeros((5, kmeans.n_clusters))  # 5 x cluster 2D matrix
+    for i in range(kmeans.n_clusters):
+        clus_silh_val = silh_v[labels == i]  # Grabs all silhouette values for all graphs in cluster
+        cluster_i = np.where(labels == i)[0]  # Grabs the index of the cluster
+        sorted_i = cluster_i[np.argsort(-clus_silh_val)]  # Descending order
+        best_samples[:, i] = sorted_i[:5]  # Grabs the first 5 and throws it into the row
+    
+    # Plotting clusters
+    ncols = 4
+    nrows = (kmeans.n_clusters + ncols - 1) // ncols
+    fig, axes = plt.subplots(nrows, ncols, figsize=(12, 8), sharex=True, sharey=False) # Creates a grid of subplots based on column and row
+    axes = axes.flatten()
+    
+    for cluster in range(kmeans.n_clusters):
+        ax = axes[cluster]
+        for s in best_samples[:, cluster]:
+            ax.plot(pos[int(s), :])
+        ax.set_title('Cluster {:} - {:2.2%}'.format(cluster + 1, (labels == cluster).sum() / (nop*3)))
+    
+    for j in range(kmeans.n_clusters, len(axes)): fig.delaxes(axes[j])  # Removes empty subplots from the figure
+    
+    plt.tight_layout()
+    plt.show()
+'''
