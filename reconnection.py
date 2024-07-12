@@ -5,12 +5,6 @@ import matplotlib.ticker as ticker
 import time
 from numba import jit, njit, prange
 
-# ML
-from sklearn.cluster import KMeans
-from sklearn.decomposition import PCA
-from scipy.fft import fft
-from sklearn.metrics import silhouette_score, silhouette_samples
-from sklearn.manifold import TSNE
 
 # Variables for EM fields
 nproc = 8
@@ -173,55 +167,42 @@ if plot2_bool:
     plt.tight_layout()
     plt.show()
 
-# ML Algorithms (for implementation later)
-'''
-def ml(pos, vel):
-    # FFT Preprocessing
-    ppx = vel / np.max(np.abs(vel))  # Normalizes set
-    ppx = fft(ppx, axis=1)  # Processes along Y axis
-    fft_magnitude = np.abs(ppx)
-    ppx = (fft_magnitude/np.max(fft_magnitude))  # Normalizes magnitudes since FFT processes with complex numbers.
-    ppx = np.array(ppx)
-    
-    
-    # PCA
-    pca = PCA(n_components=40)  # 40 components keeps 98.5% of variance.
-    pca_r = pca.fit_transform(ppx)
-    
-    print("Shape Post-PCA: {}".format(np.shape(pca_r)))
-    
-    # K-Means
-    kmeans = KMeans(n_clusters=3, n_init=10)
-    labels = kmeans.fit_predict(pca_r)
-    
-    # Silhouette Analysis
-    silhouette_avg = silhouette_score(pca_r, labels)
-    print("Silhouette Score: {}".format(silhouette_avg))  # Average score for how closely a sample fits its cluster. It get's pretty low, but we look at the larger examples anyway.
-    silh_v = silhouette_samples(pca_r, labels)
-    
-    
-    # Grabs the best fit graphs per cluster
-    best_samples = np.zeros((5, kmeans.n_clusters))  # 5 x cluster 2D matrix
-    for i in range(kmeans.n_clusters):
-        clus_silh_val = silh_v[labels == i]  # Grabs all silhouette values for all graphs in cluster
-        cluster_i = np.where(labels == i)[0]  # Grabs the index of the cluster
-        sorted_i = cluster_i[np.argsort(-clus_silh_val)]  # Descending order
-        best_samples[:, i] = sorted_i[:5]  # Grabs the first 5 and throws it into the row
-    
-    # Plotting clusters
-    ncols = 4
-    nrows = (kmeans.n_clusters + ncols - 1) // ncols
-    fig, axes = plt.subplots(nrows, ncols, figsize=(12, 8), sharex=True, sharey=False) # Creates a grid of subplots based on column and row
-    axes = axes.flatten()
-    
-    for cluster in range(kmeans.n_clusters):
-        ax = axes[cluster]
-        for s in best_samples[:, cluster]:
-            ax.plot(pos[int(s), :])
-        ax.set_title('Cluster {:} - {:2.2%}'.format(cluster + 1, (labels == cluster).sum() / (nop*3)))
-    
-    for j in range(kmeans.n_clusters, len(axes)): fig.delaxes(axes[j])  # Removes empty subplots from the figure
-    
-    plt.tight_layout()
-    plt.show()
-'''
+# Export
+exp_b = True
+if exp_b:
+    # Writing to CSV
+    i_isav = 10
+    e_isav = 100
+
+    pos_chunk = i_pos[:, 2000:5000:i_isav, :]
+    vel_chunk = i_vel[:, 2000:5000:i_isav, :]
+    print()
+
+    data = {
+        'pos_x': pos_chunk[:, :, 0].flatten(),
+        'pos_y': pos_chunk[:, :, 1].flatten(),
+        'pos_z': pos_chunk[:, :, 2].flatten(),
+        'vel_x': vel_chunk[:, :, 0].flatten(),
+        'vel_y': vel_chunk[:, :, 1].flatten(),
+        'vel_z': vel_chunk[:, :, 2].flatten()
+    }
+    df = pd.DataFrame(data)
+    fname = f'ion.feather'
+    df.to_feather(fname)
+
+    pos_chunk = e_pos[:, 200000:500000:e_isav, :]
+    vel_chunk = e_vel[:, 200000:500000:e_isav, :]
+
+
+    data = {
+        'pos_x': pos_chunk[:, :, 0].flatten(),
+        'pos_y': pos_chunk[:, :, 1].flatten(),
+        'pos_z': pos_chunk[:, :, 2].flatten(),
+        'vel_x': vel_chunk[:, :, 0].flatten(),
+        'vel_y': vel_chunk[:, :, 1].flatten(),
+        'vel_z': vel_chunk[:, :, 2].flatten()
+    }
+    df = pd.DataFrame(data)
+
+    fname = f'electron.feather'
+    df.to_feather(fname)
