@@ -6,11 +6,14 @@ import time
 from numba import jit, njit, prange
 
 # ML
-from sklearn.cluster import KMeans
+from sklearn.cluster import KMeans, kmeans_plusplus
 from sklearn.decomposition import PCA
+from sklearn.preprocessing import normalize
 from scipy.fft import fft
 from sklearn.metrics import silhouette_score, silhouette_samples
 from sklearn.manifold import TSNE
+
+str_time = time.time()
 
 # Import feather files
 ion_df = pd.read_feather('data/ion.feather')
@@ -36,60 +39,142 @@ electron_vel = electron_df[['vel_x', 'vel_y', 'vel_z']].values.reshape(num_elect
 print("Electron Positions Shape:", electron_pos.shape)
 print("Electron Velocities Shape:", electron_vel.shape)
 
-# Prepare ions for ML
-ion_x = ion_pos[:, :, 0]
-print("X Shape Pre-PCA:", ion_x.shape)
-ion_y = ion_pos[:, :, 1]
-print("Y Shape Pre-PCA:", ion_y.shape)
+print(f"Files read and parsed in {time.time() - str_time} seconds.")
+print("-------------")
 
 '''
-# FFT Preprocessing
-ppx_x = pos[:, :, 0] / np.max(np.abs(pos[:, :, 0]))  # Normalizes set
-ppx_x = fft(ppx_x, axis=1)  # Processes along Y axis
-x_mag = np.abs(ppx_x)
-ppx_x = (x_mag/np.max(x_mag))  # Normalizes magnitudes since FFT processes with complex numbers.
-ppx_x = np.array(x_mag)
-print(ppx_x)
+# Plot to check if parsed correctly
+fig = plt.figure(figsize=(10, 8))
+ax = fig.add_subplot(111)
+ax.set_xlim(0, 512)
+ax.set_ylim(0, 200)
+ax.set_aspect(1)
+for pos in ion_pos:
+    ax.plot(pos[:, 1], pos[:, 0])
+plt.tight_layout()
+plt.show()
+'''
 
+# Prepare ions for ML
+ion_x = ion_pos[:, :, 1]
+ion_y = ion_pos[:, :, 0]
+
+ion_vel_x = ion_vel[:, :, 1]
+ion_vel_y = ion_vel[:, :, 0]
+
+# FFT Preprocessing
+
+def process(arr):
+    ppx = arr / np.max(np.abs(arr), axis=1, keepdims=True)  # Normalizes set
+    ppx = fft(ppx, axis=1)  # Processes along Y axis
+    mag = np.abs(ppx)
+    ppx = mag/np.max(mag, axis=1, keepdims=True)  # Normalizes magnitudes since FFT processes with complex numbers.
+    ppx = np.array(ppx) # Makes sure it is a numpy array (sometimes likes to not be)
+    return ppx
+
+
+# X
+ppx_x = process(ion_x)
+ppx_y = process(ion_y)
+ppx_vx = process(ion_vel_x)
+ppx_vy = process(ion_vel_y)
+# Combine Results
+combined = np.hstack((ppx_x, ppx_y, ppx_vx, ppx_vy))
+print("Combined Shape Pre-PCA:", combined.shape)
 
 # PCA
-pca = PCA(n_components=40)  # 40 components keeps 98.5% of variance.
-pca_r = pca.fit_transform(ppx)
 
-print("Shape Post-PCA: {}".format(np.shape(pca_r)))
+# Performing PCA
+pca = PCA(n_components=10)
+score = pca.fit_transform(combined)
+score = normalize(score)
+print("Combined Shape Post-PCA:", score.shape)
+
+'''
+cumsum = np.cumsum(pca.explained_variance_ratio_)
+
+# Plot PCA results
+plt.figure()
+plt.scatter(score[:, 0], score[:, 1], marker='.')
+plt.xlabel('PC I')
+plt.ylabel('PC II')
+plt.grid(True)
+plt.title('PCA of FFT-Processed Ion Positions')
+plt.show()
+
+
+# Plot Explained Variance
+xmax = np.argmax(cumsum >= 0.999) + 1
+plt.figure()
+plt.plot(cumsum, marker='o')
+plt.xlabel('Number of Principal Components')
+plt.ylabel('Cumulative Explained Variance')
+plt.title('Scree Plot')
+plt.grid(True)
+plt.xlim(0, xmax)
+plt.show()
+
+d = np.argmax(cumsum >= 0.985) + 1
+print(d)
+'''
 
 # K-Means
-kmeans = KMeans(n_clusters=3, n_init=10)
-labels = kmeans.fit_predict(pca_r)
 
-# Silhouette Analysis
-silhouette_avg = silhouette_score(pca_r, labels)
-print("Silhouette Score: {}".format(silhouette_avg))  # Average score for how closely a sample fits its cluster. It get's pretty low, but we look at the larger examples anyway.
-silh_v = silhouette_samples(pca_r, labels)
-
-
-# Grabs the best fit graphs per cluster
-best_samples = np.zeros((5, kmeans.n_clusters))  # 5 x cluster 2D matrix
-for i in range(kmeans.n_clusters):
-    clus_silh_val = silh_v[labels == i]  # Grabs all silhouette values for all graphs in cluster
-    cluster_i = np.where(labels == i)[0]  # Grabs the index of the cluster
-    sorted_i = cluster_i[np.argsort(-clus_silh_val)]  # Descending order
-    best_samples[:, i] = sorted_i[:5]  # Grabs the first 5 and throws it into the row
+# Clustering
+kmeans = KMeans(n_clusters=12, n_init=20, random_state=42)
+labels = kmeans.fit_predict(score)
 
 # Plotting clusters
 ncols = 4
 nrows = (kmeans.n_clusters + ncols - 1) // ncols
-fig, axes = plt.subplots(nrows, ncols, figsize=(12, 8), sharex=True, sharey=False) # Creates a grid of subplots based on column and row
+fig, axes = plt.subplots(nrows, ncols, sharex=True, sharey=True) # Creates a grid of subplots based on column and row
+axes = axes.flatten()
+
+for cluster in range(kmeans.n_clusters):
+    ax = axes[cluster]
+    for i, ion in enumerate(ion_pos):
+        if labels[i] == cluster:
+            ax.plot(ion[:, 1], ion[:, 0])
+    ax.set_title('Cluster {:} - {:2.2%}'.format(cluster + 1, (labels == cluster).sum() / num_ion))
+    ax.set_aspect('equal')
+    ax.set_xlim(50, 450)
+    ax.set_ylim(0,200)
+    ax.set_aspect(1)
+
+for j in range(kmeans.n_clusters, len(axes)): fig.delaxes(axes[j])  # Removes empty subplots from the figure
+fig.tight_layout()
+plt.show()
+
+
+# Silhouette Analysis
+
+silhouette_avg = silhouette_score(score, labels)
+print("Silhouette Score: {}".format(silhouette_avg))  # Average score for how closely a sample fits its cluster. It get's pretty low, but we look at the larger examples anyway.
+silh_v = silhouette_samples(score, labels)
+
+
+# Grabs the best fit graphs per cluster
+best_samples = np.zeros((50, kmeans.n_clusters))  # 5 x cluster 2D matrix
+for i in range(kmeans.n_clusters):
+    clus_silh_val = silh_v[labels == i]  # Grabs all silhouette values for all graphs in cluster
+    cluster_i = np.where(labels == i)[0]  # Grabs the index of the cluster
+    sorted_i = cluster_i[np.argsort(-clus_silh_val)]  # Descending order
+    best_samples[:, i] = sorted_i[:50]  # Grabs the first 25 and throws it into the row
+
+# Plotting clusters
+ncols = 4
+nrows = (kmeans.n_clusters + ncols - 1) // ncols
+fig, axes = plt.subplots(nrows, ncols, figsize=(12, 8), sharex=True, sharey=True) # Creates a grid of subplots based on column and row
 axes = axes.flatten()
 
 for cluster in range(kmeans.n_clusters):
     ax = axes[cluster]
     for s in best_samples[:, cluster]:
-        ax.plot(pos[int(s), :])
-    ax.set_title('Cluster {:} - {:2.2%}'.format(cluster + 1, (labels == cluster).sum() / (nop*3)))
+        ax.plot(ion_pos[int(s), :, 1], ion_pos[int(s), :, 0])
+    ax.set_title('Cluster {:} - {:2.2%}'.format(cluster + 1, (labels == cluster).sum() / num_ion))
 
 for j in range(kmeans.n_clusters, len(axes)): fig.delaxes(axes[j])  # Removes empty subplots from the figure
 
+plt.suptitle("Clustering based on Both Position and Velocity. Display based on Silhouette.")
 plt.tight_layout()
 plt.show()
-'''

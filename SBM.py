@@ -38,6 +38,7 @@ sub_vel = calc_Vel(sub)
 sup_vel = calc_Vel(sup)
 all_b = np.concatenate((nor, sub, sup))  # Combines into one set
 all_v = np.concatenate((nor_vel, sub_vel, sup_vel))
+print(all_b)
 print("Shape Pre-PCA: {}".format(np.shape(all_b)))
 
 

@@ -143,16 +143,21 @@ simulate_particles(e_pos, e_vel, nop//100, nt*100, me, qe, dt/100, c)
 print("--- Electrons simulated in %s seconds ---" % (time.time() - start_time))
 
 # Plotting ion and electron paths on XY axis slice.
+pos_chunk = i_pos[:, 2000:5000:10, :]
+print(pos_chunk[:, :, 0].shape)
+print(pos_chunk[:, :, 0].flatten().shape)
 plot2_bool = False
 if plot2_bool:
     # Plotting
+    i_isav = 10
+    e_isav = 100
     fig = plt.figure(figsize=(10, 8))
     ax = fig.add_subplot(111)
     ax.set_xlim(0, 512)
     ax.set_ylim(0, 200)
     ax.set_aspect(1)
-    for pos in i_pos:
-        ax.plot(pos[2000:5001:10, 1], pos[2000:5001:10, 0]) # 300 timesteps
+    for pos in pos_chunk:
+        ax.plot(pos[:, 1], pos[:, 0]) # 300 timesteps
 
     plt.tight_layout()
     plt.show()
@@ -162,13 +167,13 @@ if plot2_bool:
     ax.set_xlim(0, 512)
     ax.set_ylim(0, 200)
     for pos in e_pos:
-        ax.plot(pos[200000:500001:100, 1], pos[200000:500001:100, 0]) # 3000 timesteps
+        ax.plot(pos[200000:500000:e_isav, 1], pos[200000:500000:e_isav, 0]) # 3000 timesteps
 
     plt.tight_layout()
     plt.show()
 
 # Export
-exp_b = True
+exp_b = False
 if exp_b:
     # Writing to CSV
     i_isav = 10
@@ -176,7 +181,7 @@ if exp_b:
 
     pos_chunk = i_pos[:, 2000:5000:i_isav, :]
     vel_chunk = i_vel[:, 2000:5000:i_isav, :]
-    print()
+    print(pos_chunk)
 
     data = {
         'pos_x': pos_chunk[:, :, 0].flatten(),
