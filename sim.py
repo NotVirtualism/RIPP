@@ -1,11 +1,4 @@
-"""
-TODO:
-- Split features among various .py files for sake of avoiding bloat. (DONE)
-- Export and import data as .cvs tables or .txt files. (DONE)
-- Further research and implement functionality with plasmapy and astropy, which may require rethinking and rewriting a
-  lot of base code.
-- - - It may be easier to just not use astropy and plasmapy.
-"""
+# sim.py - early simple test particle simulator
 
 import numpy as np
 import pandas as pd
@@ -13,15 +6,15 @@ import matplotlib.pyplot as plt
 import time
 from numba import jit, njit, prange
 
-nop = 10000 # number of particles
+nop = 1 # number of particles
 q = 1.0     # particle charge
 m = 1.0     # particle mass
 c = 1.0     # speed of light in a vacuum (1.0 for normalized)
 dt = 0.01   # time step
-nt = 1000   # number of time steps
+nt = 100000   # number of time steps
 
-E = np.array([0.0, 1.0, 0.0])  # electric field
-B = np.array([0.0, 1.0, 0.0])  # magnetic field
+E = np.array([0.0, 0.0, 0.0])  # electric field
+B = np.array([0.0, 0.0, 1.0])  # magnetic field
 
 # Particle attributes are stored as arrays of arrays
 pos_s = np.zeros((nop, nt, 3))
@@ -33,15 +26,17 @@ Methods:
 "boris" - boris leapfrog scheme
 "euler" - euler / first order scheme
 """
-method = "boris"
+method = "euler"
 start_time = time.time()
 
 
+# Simulation method for calculating and pushing particle position and velocity based on method,
+# recording the values as it goes.
 @njit(parallel=True)
 def simulate_particles(pos_s, vel_s, en_s, nop, nt, m, q, dt, E, B, c, method):
     for p in prange(nop):
         x = np.array([0.0, 0.0, 0.0])  # initial particle position
-        v = np.random.randn(3)  # initial particle velocity
+        v = np.array([1.0, 0.0, 0.0])  # initial particle velocity
 
         for step in range(nt):
             # Store current position and velocity
@@ -84,28 +79,9 @@ if (B[0] == B_mag or B[1] == B_mag or B[2] == B_mag) and np.linalg.norm(E) == 0:
     gyrofreq = cyc_f / (2 * np.pi)
     print("Cyclotron frequency: {}\nGyroradius: {}\nGyrofrequency: {}".format(cyc_f, gyroradius, gyrofreq))
 '''
+
 simulate_particles(pos_s, vel_s, en_s, nop, nt, m, q, dt, E, B, c, method)
 print("--- %s seconds ---" % (time.time() - start_time))
-
-
-# Writing to CSV
-chunk_size = 1000
-num_files = nop // chunk_size
-
-for i in range(num_files):
-    start_idx = i * chunk_size
-    end_idx = start_idx + chunk_size
-
-    pos_chunk = pos_s[start_idx:end_idx]
-    vel_chunk = vel_s[start_idx:end_idx]
-    data = {
-        'pos': pos_chunk.reshape(-1, 3).tolist(),
-        'vel': vel_chunk.reshape(-1, 3).tolist()
-    }
-    df = pd.DataFrame(data)
-
-    fname = f'particle_chunk_{i+1}.csv'
-    df.to_csv(fname, index=False)
 
 # Plotting
 fig = plt.figure(figsize=(10, 8))

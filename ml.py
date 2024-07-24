@@ -1,9 +1,9 @@
+# ml.py - collection of machine learning algorithms for use on data read in from reconnection.py
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
 import time
-from numba import jit, njit, prange
 
 # ML
 from sklearn.cluster import KMeans
@@ -11,7 +11,6 @@ from sklearn.decomposition import PCA
 from sklearn.preprocessing import normalize
 from scipy.fft import fft
 from sklearn.metrics import silhouette_score, silhouette_samples
-from sklearn.manifold import TSNE
 
 # Functions
 
@@ -34,6 +33,7 @@ def pca_(arr, com):
     return pca__
 
 
+# Function to visualize PC I, II, and variance
 def visualize_pca(arr):
     pca = PCA()
     score = pca.fit_transform(arr)
@@ -160,18 +160,29 @@ print("Electron Velocities Shape:", electron_vel.shape)
 print(f"Files read and parsed in {time.time() - str_time} seconds.")
 print("-------------")
 
-'''
 # Plot to check if parsed correctly
-fig = plt.figure(figsize=(10, 8))
-ax = fig.add_subplot(111)
-ax.set_xlim(0, 512)
-ax.set_ylim(0, 200)
-ax.set_aspect(1)
-for pos in ion_pos:
-    ax.plot(pos[:, 1], pos[:, 0])
-plt.tight_layout()
-plt.show()
-'''
+plot_bool = False
+if plot_bool:
+    fig = plt.figure(figsize=(10, 8))
+    ax = fig.add_subplot(111)
+    ax.set_xlim(0, 512)
+    ax.set_ylim(0, 200)
+    ax.set_aspect(1)
+    for pos in ion_pos:
+        ax.plot(pos[:, 1], pos[:, 0])
+    plt.tight_layout()
+    plt.show()
+
+    fig = plt.figure(figsize=(10, 8))
+    ax = fig.add_subplot(111)
+    ax.set_xlim(0, 512)
+    ax.set_ylim(0, 200)
+    ax.set_aspect(1)
+    for pos in electron_pos:
+        ax.plot(pos[:, 1], pos[:, 0])
+    plt.tight_layout()
+    plt.show()
+
 '''
 # Prepare ions for ML
 ion_x = ion_pos[:, :, 1]
@@ -239,19 +250,19 @@ score3 = pca_(comb3, 74)
 score3 = normalize(score3)
 
 #Clustering
-fig1 = visualize_kmeans(12, score1, 4, 42, electron_pos, num_electron)
+fig1 = visualize_kmeans(6, score1, 3, 42, electron_pos, num_electron)
 plt.suptitle("Electron Clustering Based on Position")
 plt.tight_layout()
 plt.subplots_adjust(hspace=0)
 plt.show()
 
-fig2 = visualize_kmeans(12, score2, 4, 42, electron_pos, num_electron)
+fig2 = visualize_kmeans(6, score2, 3, 42, electron_pos, num_electron)
 plt.suptitle("Electron Clustering Based on Velocity")
 plt.tight_layout()
 plt.subplots_adjust(hspace=0)
 plt.show()
 
-fig3 = visualize_kmeans(12, score3, 4, 42, electron_pos, num_electron)
+fig3 = visualize_kmeans(6, score3, 3, 42, electron_pos, num_electron)
 plt.suptitle("Electron Clustering Based on Both Position and Velocity")
 plt.tight_layout()
 plt.subplots_adjust(hspace=0)

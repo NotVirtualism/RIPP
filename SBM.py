@@ -1,4 +1,5 @@
-# Purpose: Use unsupervised machine learning techniques to group and classify Scaled Brownian Motion
+# SBM.py - Generate graphs using Scaled Brownian motion and use unsupervised machine learning techniques
+#          to group and classify them.
 
 from scipy.special import erfcinv
 import numpy as np
@@ -9,7 +10,6 @@ from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from scipy.fft import fft
 from sklearn.metrics import silhouette_score, silhouette_samples
-from sklearn.manifold import TSNE
 
 
 def SBM(nop, nt, a):
@@ -90,29 +90,3 @@ for j in range(kmeans.n_clusters, len(axes)): fig.delaxes(axes[j])  # Removes em
 
 plt.tight_layout()
 plt.show()
-
-'''
-Visualizing Clusters
-# t-SNE for Visualization
-tsne = TSNE(n_components=2, random_state=42)
-tsne_r = tsne.fit_transform(pca_r)
-
-# Plotting
-plt.figure(figsize=(10, 7))
-plt.scatter(tsne_r[:, 0], tsne_r[:, 1], c=labels, cmap='viridis', s=50, alpha=0.7)
-plt.title('Cluster visualization using t-SNE')
-plt.xlabel('t-SNE Component 1')
-plt.ylabel('t-SNE Component 2')
-plt.colorbar(label='Cluster Label')
-plt.show()
-'''
-
-'''
-#Scree Plot
-PC_vals = np.arange(pca.n_components_) + 1
-plt.plot(PC_vals, pca.explained_variance_ratio_, 'o-', linewidth=2)
-plt.title('Scree Plot')
-plt.xlabel('Principal Component')
-plt.ylabel('Variance Explained')
-plt.show()
-'''

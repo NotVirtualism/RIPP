@@ -1,10 +1,11 @@
+# reconnection.py - expanded test particle simulator for interpolating magnetic reconnection field data.
+#                   results are also able to be exported using the .feather file format.
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
 import time
-from numba import jit, njit, prange
-
+from numba import njit, prange
 
 # Variables for EM fields
 nproc = 8
@@ -32,7 +33,7 @@ for irank in range(nproc):
     dat5 = np.fromfile(f5, dtype='float64').reshape(-1, nx)
     dat6 = np.fromfile(f6, dtype='float64').reshape(-1, nx)
 
-    if (irank == 0):
+    if irank == 0:
         bx = np.copy(dat1)
         by = np.copy(dat2)
         bz = np.copy(dat3)
@@ -47,6 +48,7 @@ for irank in range(nproc):
         ey = np.concatenate((ey, dat5), axis=0)
         ez = np.concatenate((ez, dat6), axis=0)
 
+# Plotting fields. Make true to see results.
 plot_bool = False
 if plot_bool:
     # Plotting Magnetic Fields
@@ -82,7 +84,8 @@ if plot_bool:
     fig.suptitle('Electric Fields')
     plt.show()
 
-nop = 10000  # number of particles
+# Simulation variables
+nop = 10000  # number of particles (ions only)
 qi = 1.0     # ion charge
 mi = 1.0     # ion mass
 qe = -1.0    # electron charge
@@ -98,6 +101,8 @@ i_pos = np.zeros((nop, nt, 3))
 i_vel = np.zeros((nop, nt, 3))
 
 
+# Simulation method for calculating and pushing particle position and velocity based on method,
+# recording the values as it goes.
 @njit(parallel=True)
 def simulate_particles(pos_s, vel_s, nop, nt, m, q, dt, c):
     for p in prange(nop):
@@ -113,7 +118,7 @@ def simulate_particles(pos_s, vel_s, nop, nt, m, q, dt, c):
             # Interpolate fields at particle position using nearest neighbor
             check = np.array([round(i) for i in x])
 
-            if(check[0] >= nx or check[0] < 0 or check[1] >= ny*nproc or check[1] < 0): # Break if outside bounds
+            if check[0] >= nx or check[0] < 0 or check[1] >= ny*nproc or check[1] < 0: # Stop running if outside of bounds.
                 run = False
             if run:
                 E = np.array([ex[check[1], check[0]], ey[check[1], check[0]], ez[check[1], check[0]]])
@@ -143,21 +148,15 @@ simulate_particles(e_pos, e_vel, nop//100, nt*100, me, qe, dt/100, c)
 print("--- Electrons simulated in %s seconds ---" % (time.time() - start_time))
 
 # Plotting ion and electron paths on XY axis slice.
-pos_chunk = i_pos[:, 2000:5000:10, :]
-print(pos_chunk[:, :, 0].shape)
-print(pos_chunk[:, :, 0].flatten().shape)
-plot2_bool = False
+plot2_bool = True
 if plot2_bool:
-    # Plotting
-    i_isav = 10
-    e_isav = 100
     fig = plt.figure(figsize=(10, 8))
     ax = fig.add_subplot(111)
     ax.set_xlim(0, 512)
     ax.set_ylim(0, 200)
     ax.set_aspect(1)
-    for pos in pos_chunk:
-        ax.plot(pos[:, 1], pos[:, 0]) # 300 timesteps
+    for pos in i_pos:
+        ax.plot(pos[:, 1], pos[:, 0])
 
     plt.tight_layout()
     plt.show()
@@ -167,21 +166,19 @@ if plot2_bool:
     ax.set_xlim(0, 512)
     ax.set_ylim(0, 200)
     for pos in e_pos:
-        ax.plot(pos[200000:500000:e_isav, 1], pos[200000:500000:e_isav, 0]) # 3000 timesteps
+        ax.plot(pos[:, 1], pos[:, 0]) 
 
     plt.tight_layout()
     plt.show()
 
-# Export
+# Exporting to .feather
 exp_b = False
 if exp_b:
-    # Writing to CSV
-    i_isav = 10
-    e_isav = 100
+    i_isav = 10 # record ion data every i_isav timestep
+    e_isav = 100 # record electron data every e_isav timestep
 
     pos_chunk = i_pos[:, 2000:5000:i_isav, :]
     vel_chunk = i_vel[:, 2000:5000:i_isav, :]
-    print(pos_chunk)
 
     data = {
         'pos_x': pos_chunk[:, :, 0].flatten(),
@@ -197,7 +194,6 @@ if exp_b:
 
     pos_chunk = e_pos[:, 200000:500000:e_isav, :]
     vel_chunk = e_vel[:, 200000:500000:e_isav, :]
-
 
     data = {
         'pos_x': pos_chunk[:, :, 0].flatten(),
